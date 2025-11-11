@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+
+{% block title %}{{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="header">
+            <div>
+                <div class="h1">{{ app_name }}</div>
+                <div class="muted">Logged in as <strong>{{ session.get('user') }}</strong> · {{ role }}</div>
+            </div>
+            <div>
+                {% if role == 'super' %}
+                <a class="btn secondary" href="{{ url_for('admin_users') }}">User Admin</a>
+                {% endif %}
+                {% if role == 'admin' or role == 'super' %}
+                <a class="btn secondary" href="{{ url_for('archive_view') }}">Archive</a>
+                {% endif %}
+                <a class="btn secondary" href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for cat, msg in messages %}
+                    <div class="flash {{ cat }}">{{ msg }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <h2 class="section-title">Upload File</h2>
+        <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="upload-form">
+            {% if role not in ['country_user_uk', 'country_user_de', 'country_user_it', 'country_user_fr', 'country_user_es'] %}
+            <label for="country">Country:</label>
+            <select name="country" id="country" required>
+                <option value="">Select Country</option>
+                {% for c in country_choices %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            
+            <label for="urgency">Urgency:</label>
+            <select name="urgency" id="urgency" required>
+                <option value="Normal">Normal</option>
+                <option value="High">High</option>
+            </select>
+            
+            {% if role in ['super', 'admin', 'user'] %}
+            <label for="stage">Stage:</label>
+            <select name="stage" id="stage" required>
+                <option value="">Select Stage</option>
+                <option value="First draft">First draft</option>
+                <option value="Rewritten/Updated version">Rewritten/Updated version</option>
+                <option value="Publisher asked for feedback">Publisher asked for feedback</option>
+            </select>
+            {% endif %}
+            
+            {% if role == 'user' or role.startswith('country_user_') %}
+            <label for="publication_status">Publication Status:</label>
+            <select name="publication_status" id="publication_status" required>
+                <option value="">Select Status</option>
+                <option value="ready">Ready to Publish</option>
+                <option value="needs_review">Needs Review</option>
+            </select>
+            {% endif %}
+            
+            <input type="file" name="file" accept=".zip,.docx,.pdf" required>
+            <button class="btn" type="submit">Upload File</button>
+        </form>
+        
+        {% if role not in ['country_user_uk', 'country_user_de', 'country_user_it', 'country_user_fr', 'country_user_es'] %}
+        <div style="margin-top: 20px; padding: 15px; background: var(--card); border-radius: 8px; border: 1px solid var(--border);">
+            <form method="get" action="{{ url_for('index') }}" style="display: flex; gap: 10px; align-items: center;">
+                <label for="filter_country" style="font-weight: 600;">Filter by Country:</label>
+                <select name="country" id="filter_country" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--ink);">
+                    <option value="">All Countries</option>
+                    {% for c in country_choices %}
+                    <option value="{{ c }}" {% if c == filter_country %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn" type="submit">Filter</button>
+                {% if filter_country %}
+                <a class="btn secondary" href="{{ url_for('index') }}">Clear Filter</a>
+                {% endif %}
+            </form>
+        </div>
+        {% endif %}
+
+        <div class="thick-divider"></div>
+
+        <h2 class="section-title">Files</h2>
+        
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Country</th>
+                    <th>File</th>
+                    <th>Urgency</th>
+                    <th>Stage</th>
+                    <th>Reviewed</th>
+                    <th>Notes</th>
+                    <th>Size</th>
+                    <th>Last modified</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+        {% if admin_rows %}
+          {% for f in admin_rows %}
+            <tr>
+              <td><strong>{{ f.country or 'UK' }}</strong></td>
+              <td>
+                {{ f.name }}
+                {% if f.publication_status %}
+                  {% if f.publication_status == 'ready' %}
+                  <span class="pub-status ready">Ready</span>
+                  {% else %}
+                  <span class="pub-status needs-review">Needs Review</span>
+                  {% endif %}
+                {% endif %}
+                {% if f.uploader %}
+                <div class="small">Uploaded by <strong>{{ f.uploader }}</strong></div>
+                {% endif %}
+              </td>
+              <td>
+                {% if f.urgency == 'High' %}
+                  <span class="urg urg-high">High</span>
+                {% else %}
+                  <span class="urg urg-normal">Normal</span>
+                {% endif %}
+              </td>
+
+              <td class="nowrap">{{ f.stage if f.stage else '—' }}</td>
+
+              <td>
+                {% if role == 'user' %}
+                  <form method="post" action="{{ url_for('toggle_reviewed', filename=f.name) }}" class="autosubmit">
+                    <input type="checkbox" name="checked" value="1" {% if f.reviewed %}checked{% endif %}>
+                  </form>
+                {% else %}
+                  <input type="checkbox" disabled {% if f.reviewed %}checked{% endif %}>
+                {% endif %}
+              </td>
+
+              <td>
+                <div class="small">{{ f.note[:50] + '...' if f.note and f.note|length > 50 else f.note or 'No notes' }}</div>
+                {% if f.note_by %}
+                  <div class="small">Last edited by <strong>{{ f.note_by }}</strong>{% if f.note_at %} on {{ f.note_at.replace('T',' ')[:16] }}{% endif %}</div>
+                {% endif %}
+              </td>
+
+              <td>{{ (f.size/1024/1024)|round(2) }} MB</td>
+              <td>{{ f.mtime.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>
+                <div class="row_actions">
+                  {% if role == 'admin' or role == 'super' %}
+                  <button class="menu-btn" onclick="openModal('{{ f.name }}', '{{ f.urgency }}', '{{ f.stage }}', '{{ f.note|replace("'", "\\'") }}', '{{ f.country or "UK" }}')">⋮</button>
+                  {% elif role == 'user' or role.startswith('country_user_') %}
+                  <button class="menu-btn" onclick="openUserNoteModal('{{ f.name }}', '{{ f.note|replace("'", "\\'") }}', '{{ f.country or "UK" }}', '{{ role }}')">⋮</button>
+                  {% endif %}
+                  <a class="btn" href="{{ url_for('download', filename=f.name) }}">Download</a>
+                  {% if role == 'admin' or role == 'super' %}
+                  <form action="{{ url_for('approve', filename=f.name) }}" method="post" onsubmit="return confirm('Archive {{ f.name }}?');" style="display: inline;">
+                    <button class="btn" type="submit">Archive</button>
+                  </form>
+                  <form action="{{ url_for('delete_file', filename=f.name) }}" method="post" onsubmit="return confirm('Delete {{ f.name }} permanently?');" style="display: inline;">
+                    <button class="btn del" type="submit">Delete</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        {% endif %}
+
+        {% if user_rows %}
+          <tr><td colspan="9" class="thick-divider-row">Files uploaded by the Business Reporter team:</td></tr>
+          {% for f in user_rows %}
+            <tr>
+              <td><strong>{{ f.country or 'UK' }}</strong></td>
+              <td>
+                {{ f.name }}
+                {% if f.publication_status %}
+                  {% if f.publication_status == 'ready' %}
+                  <span class="pub-status ready">Ready</span>
+                  {% else %}
+                  <span class="pub-status needs-review">Needs Review</span>
+                  {% endif %}
+                {% endif %}
+                {% if f.uploader %}
+                <div class="small">Uploaded by <strong>{{ f.uploader }}</strong></div>
+                {% endif %}
+              </td>
+              <td>
+                {% if f.urgency == 'High' %}
+                  <span class="urg urg-high">High</span>
+                {% else %}
+                  <span class="urg urg-normal">Normal</span>
+                {% endif %}
+              </td>
+              <td class="nowrap">{{ f.stage if f.stage else '—' }}</td>
+
+              <td><input type="checkbox" disabled {% if f.reviewed %}checked{% endif %}></td>
+
+              <td>
+                <div class="small">{{ f.note[:50] + '...' if f.note and f.note|length > 50 else f.note or 'No notes' }}</div>
+                {% if f.note_by %}
+                  <div class="small">Last edited by <strong>{{ f.note_by }}</strong>{% if f.note_at %} on {{ f.note_at.replace('T',' ')[:16] }}{% endif %}</div>
+                {% endif %}
+              </td>
+
+              <td>{{ (f.size/1024/1024)|round(2) }} MB</td>
+              <td>{{ f.mtime.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>
+                <div class="row_actions">
+                  {% if role == 'admin' or role == 'super' %}
+                  <button class="menu-btn" onclick="openModal('{{ f.name }}', '{{ f.urgency }}', '{{ f.stage }}', '{{ f.note|replace("'", "\\'") }}', '{{ f.country or "UK" }}')">⋮</button>
+                  {% elif role == 'user' or role.startswith('country_user_') %}
+                  <button class="menu-btn" onclick="openUserNoteModal('{{ f.name }}', '{{ f.note|replace("'", "\\'") }}', '{{ f.country or "UK" }}', '{{ role }}')">⋮</button>
+                  {% endif %}
+                  <a class="btn" href="{{ url_for('download', filename=f.name) }}">Download</a>
+                  {% if role == 'admin' or role == 'super' %}
+                  <form action="{{ url_for('approve', filename=f.name) }}" method="post" onsubmit="return confirm('Archive {{ f.name }}?');" style="display: inline;">
+                    <button class="btn" type="submit">Archive</button>
+                  </form>
+                  {% endif %}
+                  {% if f.can_delete %}
+                  <form action="{{ url_for('delete_file', filename=f.name) }}" method="post" onsubmit="return confirm('Delete {{ f.name }} permanently?');" style="display: inline;">
+                    <button class="btn del" type="submit">Delete</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        {% endif %}
+            </tbody>
+        </table>
+
+        <div class="center-link">
+            <h2><a href="{{ dashboard_url }}" target="_blank" rel="noopener noreferrer">Business Reporter Campaign Dashboard</a></h2>
+        </div>
+    </div>
+
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit File: <span id="modal-filename"></span></h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-field">
+                <label for="modal-country">Country</label>
+                <select id="modal-country">
+                    {% for c in country_choices %}
+                    <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="modal-field">
+                <label for="modal-urgency">Urgency</label>
+                <select id="modal-urgency">
+                    <option value="Normal">Normal</option>
+                    <option value="High">High</option>
+                </select>
+            </div>
+            
+            <div class="modal-field">
+                <label for="modal-stage">Stage</label>
+                <select id="modal-stage">
+                    <option value="">—</option>
+                    <option value="First draft">First draft</option>
+                    <option value="Rewritten/Updated version">Rewritten/Updated version</option>
+                    <option value="Publisher asked for feedback">Publisher asked for feedback</option>
+                </select>
+            </div>
+            
+            <div class="modal-field">
+                <label for="modal-note">Notes (max 100 characters)</label>
+                <textarea id="modal-note" maxlength="100" placeholder="Add notes about this file..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn secondary" onclick="closeModal()">Cancel</button>
+            <button class="btn" onclick="saveChanges()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<div id="userNoteModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Edit Note: <span id="user-modal-filename"></span></h3>
+            <button class="modal-close" onclick="closeUserNoteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-field" id="user-country-field">
+                <label for="user-modal-country">Country</label>
+                <select id="user-modal-country">
+                    {% for c in country_choices %}
+                    <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="modal-field">
+                <label for="user-modal-note">Notes (max 100 characters)</label>
+                <textarea id="user-modal-note" maxlength="100" placeholder="Add notes about this file..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn secondary" onclick="closeUserNoteModal()">Cancel</button>
+            <button class="btn" onclick="saveUserNote()">Save Note</button>
+        </div>
+    </div>
+</div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function(){
+        document.querySelectorAll('form.autosubmit input[type=checkbox]').forEach(function(cb){
+            cb.addEventListener('change', function(){ cb.form.submit(); });
+        });
+    });
+
+    function openModal(filename, urgency, stage, note, country) {
+        document.getElementById('modal-filename').textContent = filename;
+        document.getElementById('modal-urgency').value = urgency;
+        document.getElementById('modal-stage').value = stage || '';
+        document.getElementById('modal-note').value = note || '';
+        document.getElementById('modal-country').value = country || 'UK';
+        document.getElementById('editModal').classList.add('active');
+        window.currentEditFile = filename;
+    }
+
+    function closeModal() {
+        document.getElementById('editModal').classList.remove('active');
+    }
+
+    function saveChanges() {
+        const filename = window.currentEditFile;
+        const urgency = document.getElementById('modal-urgency').value;
+        const stage = document.getElementById('modal-stage').value;
+        const note = document.getElementById('modal-note').value;
+        const country = document.getElementById('modal-country').value;
+        
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/edit/${encodeURIComponent(filename)}`;
+        
+        const fields = { urgency, stage, note, country };
+        for (const [key, value] of Object.entries(fields)) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value;
+            form.appendChild(input);
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    let userNoteFilename = '';
+
+    function openUserNoteModal(filename, note, country, role) {
+      userNoteFilename = filename;
+      document.getElementById('user-modal-filename').textContent = filename;
+      document.getElementById('user-modal-note').value = note;
+      document.getElementById('user-modal-country').value = country || 'UK';
+    
+      // Hide country field for regular users AND country_users
+      const countryField = document.getElementById('user-country-field');
+      countryField.style.display = 'none';
+    
+      document.getElementById('userNoteModal').classList.add('active');
+    } 
+
+    function closeUserNoteModal() {
+        document.getElementById('userNoteModal').classList.remove('active');
+    }
+
+    function saveUserNote() {
+        const note = document.getElementById('user-modal-note').value;
+        const country = document.getElementById('user-modal-country').value;
+        
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/set_note/${encodeURIComponent(userNoteFilename)}`;
+        
+        const noteInput = document.createElement('input');
+        noteInput.type = 'hidden';
+        noteInput.name = 'note';
+        noteInput.value = note;
+        form.appendChild(noteInput);
+        
+        const countryInput = document.createElement('input');
+        countryInput.type = 'hidden';
+        countryInput.name = 'country';
+        countryInput.value = country;
+        form.appendChild(countryInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'editModal') closeModal();
+        if (e.target.id === 'userNoteModal') closeUserNoteModal();
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeModal();
+            closeUserNoteModal();
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Users · {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="header">
+            <div>
+                <div class="h1">User management</div>
+                <div class="muted">{{ app_name }}</div>
+            </div>
+            <div>
+                <a class="btn secondary" href="{{ url_for('index') }}">Back</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for cat, msg in messages %}
+                    <div class="flash {{ cat }}">{{ msg }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <h2 style="margin-top: 24px; margin-bottom: 12px; font-size: 18px; color: #cbd5e1;">Users</h2>
+        
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>{{ u.username }}</td>
+                    <td>{{ u.email or '—' }}</td>
+                    <td>{{ u.role }}</td>
+                    <td>{{ 'active' if u.is_active else 'inactive' }}</td>
+                    <td>
+                        <div class="row_actions">
+                            <button class="menu-btn" onclick="openUserModal('{{ u.username }}', '{{ u.role }}', {{ u.is_active }})">⋮</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="thick-divider"></div>
+
+        <h2 style="margin-top: 24px; margin-bottom: 12px; font-size: 18px; color: #cbd5e1;">Invite Codes</h2>
+        
+        <div style="margin-bottom: 20px;">
+            <form method="post" action="{{ url_for('admin_users_action') }}" class="inline-form" style="gap: 12px;">
+                <input type="hidden" name="action" value="gen_invites">
+                <label for="count" class="muted">Generate</label>
+                <input id="count" name="count" type="text" value="10" style="width: 80px;" required>
+                <label for="length" class="muted">codes of length</label>
+                <input id="length" name="length" type="text" value="7" style="width: 80px;" required>
+                <label for="country" class="muted">for country</label>
+                <select id="country" name="country" style="width: 100px;" required>
+                    <option value="">Select</option>
+                    <option value="UK">UK</option>
+                    <option value="DE">DE</option>
+                    <option value="IT">IT</option>
+                    <option value="FR">FR</option>
+                    <option value="ES">ES</option>
+                </select>
+                <button class="btn" type="submit">Generate Invite Codes</button>
+            </form>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Country</th>
+                    <th>Status</th>
+                    <th>Used By</th>
+                    <th>Used At</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if invites %}
+                    {% for inv in invites %}
+                    <tr>
+                        <td><strong>{{ inv.code }}</strong></td>
+                        <td><strong>{{ inv.country or 'UK' }}</strong></td>
+                        <td>
+                            {% if inv.is_used %}
+                                <span style="color: #9aa1ad;">Used</span>
+                            {% else %}
+                                <span style="color: #4caf50;">Available</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ inv.used_by or '—' }}</td>
+                        <td>{{ inv.used_at[:16].replace('T', ' ') if inv.used_at else '—' }}</td>
+                        <td>{{ inv.created_at[:16].replace('T', ' ') if inv.created_at else '—' }}</td>
+                        <td>
+                            {% if not inv.is_used %}
+                            <form method="post" action="{{ url_for('admin_users_action') }}">
+                                <input type="hidden" name="action" value="revoke_invite">
+                                <input type="hidden" name="code" value="{{ inv.code }}">
+                                <button class="btn del" type="submit" onclick="return confirm('Revoke code {{ inv.code }}?')">Revoke</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="muted">No invite codes yet. Generate some above.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <div class="center-link">
+            <h2><a href="{{ dashboard_url }}" target="_blank" rel="noopener noreferrer">Business Reporter Campaign Dashboard</a></h2>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentUsername = '';
+
+    function openUserModal(username, role, isActive) {
+        currentUsername = username;
+        document.getElementById('modal-username').textContent = username;
+        document.getElementById('modal-role').value = role;
+        
+        if (isActive) {
+            document.getElementById('btn-deactivate').style.display = 'inline-block';
+            document.getElementById('btn-activate').style.display = 'none';
+        } else {
+            document.getElementById('btn-deactivate').style.display = 'none';
+            document.getElementById('btn-activate').style.display = 'inline-block';
+        }
+        
+        document.getElementById('userModal').classList.add('active');
+    }
+
+    function closeUserModal() {
+        document.getElementById('userModal').classList.remove('active');
+        document.getElementById('reset-password-input').value = '';
+    }
+
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('userModal');
+        if (e.target === modal) closeUserModal();
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeUserModal();
+    });
+
+    function submitUserAction(action) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("admin_users_action") }}';
+        
+        const usernameInput = document.createElement('input');
+        usernameInput.type = 'hidden';
+        usernameInput.name = 'username';
+        usernameInput.value = currentUsername;
+        form.appendChild(usernameInput);
+        
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = action;
+        form.appendChild(actionInput);
+        
+        if (action === 'reset_password') {
+            const password = document.getElementById('reset-password-input').value;
+            if (!password || password.length < 6) {
+                alert('Password must be at least 6 characters');
+                return;
+            }
+            const pwInput = document.createElement('input');
+            pwInput.type = 'hidden';
+            pwInput.name = 'new_password';
+            pwInput.value = password;
+            form.appendChild(pwInput);
+        }
+        
+        if (action === 'delete_user') {
+            if (!confirm(`Delete user ${currentUsername}? This cannot be undone.`)) return;
+        }
+        if (action === 'deactivate') {
+            if (!confirm(`Deactivate user ${currentUsername}?`)) return;
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function changeRole() {
+        const newRole = document.getElementById('modal-role').value;
+        let action = '';
+        
+        if (newRole === 'admin') action = 'promote';
+        else if (newRole === 'user') action = 'demote';
+        else if (newRole === 'super') action = 'make_super';
+        
+        if (action) submitUserAction(action);
+    }
+</script>
+
+<div id="userModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>Manage User: <span id="modal-username"></span></h3>
+            <button class="modal-close" onclick="closeUserModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-field">
+                <label for="modal-role">Change Role</label>
+                <select id="modal-role" onchange="changeRole()">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                    <option value="super">Super</option>
+                </select>
+                <div class="small" style="margin-top: 5px; color: var(--muted);">Changing role will take effect immediately</div>
+            </div>
+
+            <div style="border-top: 1px solid var(--border); margin: 20px 0;"></div>
+
+            <div class="modal-field">
+                <label for="reset-password-input">Reset Password</label>
+                <input type="password" id="reset-password-input" placeholder="Enter new password (min 6 characters)">
+                <button class="btn" style="margin-top: 10px;" onclick="submitUserAction('reset_password')">Reset Password</button>
+            </div>
+
+            <div style="border-top: 1px solid var(--border); margin: 20px 0;"></div>
+
+            <div class="modal-field">
+                <label style="color: #ff4d4f;">Dangerous Actions</label>
+                <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                    <button id="btn-deactivate" class="btn del" onclick="submitUserAction('deactivate')">Deactivate User</button>
+                    <button id="btn-activate" class="btn" onclick="submitUserAction('activate')" style="display: none;">Activate User</button>
+                    <button class="btn del" onclick="submitUserAction('delete_user')">Delete User</button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn secondary" onclick="closeUserModal()">Close</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

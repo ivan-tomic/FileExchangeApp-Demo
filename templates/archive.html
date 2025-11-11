@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Archive · {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card">
+        <div class="header">
+            <div>
+                <div class="h1">Archived Files</div>
+                <div class="muted">{{ app_name }}</div>
+            </div>
+            <div>
+                <a class="btn secondary" href="{{ url_for('index') }}">Back</a>
+                <a class="btn secondary" href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for cat, msg in messages %}
+                    <div class="flash {{ cat }}">{{ msg }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Filter by Country -->
+        <div style="margin: 20px 0;">
+            <form method="get" action="{{ url_for('archive_view') }}" style="display: flex; gap: 10px; align-items: center;">
+                <label for="country" style="font-weight: 600;">Filter by Country:</label>
+                <select name="country" id="country" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--ink);">
+                    <option value="">All Countries</option>
+                    {% for c in country_choices %}
+                    <option value="{{ c }}" {% if c == filter_country %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn" type="submit">Filter</button>
+                {% if filter_country %}
+                <a class="btn secondary" href="{{ url_for('archive_view') }}">Clear Filter</a>
+                {% endif %}
+            </form>
+        </div>
+
+        <div class="thick-divider"></div>
+
+        <h2 class="section-title">Archived Files ({{ archived_files|length }})</h2>
+        
+        {% if archived_files %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Country</th>
+                    <th>File</th>
+                    <th>Size</th>
+                    <th>Uploaded On</th>
+                    <th>Archived On</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in archived_files %}
+                <tr>
+                    <td><strong>{{ f.country }}</strong></td>
+                    <td>{{ f.name }}</td>
+                    <td>{{ (f.size/1024/1024)|round(2) }} MB</td>
+                    <td>{{ f.uploaded_at[:10] if f.uploaded_at else '—' }}</td>
+                    <td>{{ f.archived_at[:16].replace('T', ' ') if f.archived_at else f.mtime.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <div class="row_actions">
+                            <a class="btn" href="{{ url_for('download_archived', filename=f.name) }}">Download</a>
+                            <form action="{{ url_for('restore_file', filename=f.name) }}" method="post" onsubmit="return confirm('Restore {{ f.name }} to main files?');" style="display: inline;">
+                                <button class="btn" type="submit">Restore</button>
+                            </form>
+                            {% if role == 'super' %}
+                            <form action="{{ url_for('delete_archived', filename=f.name) }}" method="post" onsubmit="return confirm('Permanently delete {{ f.name }}?');" style="display: inline;">
+                                <button class="btn del" type="submit">Delete</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="muted" style="text-align: center; padding: 40px;">No archived files found.</p>
+        {% endif %}
+
+        <div class="center-link">
+            <h2><a href="{{ dashboard_url }}" target="_blank" rel="noopener noreferrer">Business Reporter Campaign Dashboard</a></h2>
+        </div>
+    </div>
+</div>
+{% endblock %}
