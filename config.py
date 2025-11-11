@@ -49,7 +49,7 @@ STAGE_ALIASES = {
 }
 
 # External links
-DASHBOARD_URL = os.getenv("DASHBOARD_URL", "https://demo.business-reporter.example/dashboard")
+DASHBOARD_URL = os.getenv("DASHBOARD_URL", "https://www.business-reporter.com")
 
 # Invite code characters for generation
 INV_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
