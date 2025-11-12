@@ -10,7 +10,7 @@
     --primary: #d10a10;
     --primary-hover: #b00808;
     --dashboard-color: #FF6200;
-    --primary-logo: url('/static/BusinessReporter_Logo_Horizontal_Dark.png');
+    --primary-logo: url('/static/BR_logo_dark.png');
 }
 
 /* Light Theme */
@@ -23,7 +23,7 @@
     --primary: #d10a10;
     --primary-hover: #b00808;
     --dashboard-color: #FF6200;
-    --primary-logo: url('/static/BusinessReporter_Logo_Horizontal_Light.png');
+    --primary-logo: url('/static/BR_logo_light.png');
 }
 
 * { 

@@ -22,7 +22,7 @@
 
     {% block bottom_logo %}
     <div class="center-link">
-        <img src="{{ url_for('static', filename='BusinessReporter_Logo_Horizontal_Dark.png') }}" 
+        <img src="{{ url_for('static', filename='BR_logo_dark.png') }}" 
              alt="Business Reporter" 
              class="brand-logo-img"
              id="brandLogo"
@@ -54,13 +54,13 @@
         if (currentTheme === 'light') {
             htmlElement.setAttribute('data-theme', 'light');
             themeToggle.checked = true;
-            brandLogo.src = "{{ url_for('static', filename='BusinessReporter_Logo_Horizontal_Light.png') }}";
+            brandLogo.src = "{{ url_for('static', filename='BR_logo_light.png') }}";
             lightLabel.classList.add('active');
             darkLabel.classList.remove('active');
         } else {
             htmlElement.setAttribute('data-theme', 'dark');
             themeToggle.checked = false;
-            brandLogo.src = "{{ url_for('static', filename='BusinessReporter_Logo_Horizontal_Dark.png') }}";
+            brandLogo.src = "{{ url_for('static', filename='BR_logo_dark.png') }}";
             darkLabel.classList.add('active');
             lightLabel.classList.remove('active');
         }
@@ -70,13 +70,13 @@
             if (this.checked) {
                 htmlElement.setAttribute('data-theme', 'light');
                 localStorage.setItem('theme', 'light');
-                brandLogo.src = "{{ url_for('static', filename='BusinessReporter_Logo_Horizontal_Light.png') }}";
+                brandLogo.src = "{{ url_for('static', filename='BR_logo_light.png') }}";
                 lightLabel.classList.add('active');
                 darkLabel.classList.remove('active');
             } else {
                 htmlElement.setAttribute('data-theme', 'dark');
                 localStorage.setItem('theme', 'dark');
-                brandLogo.src = "{{ url_for('static', filename='BusinessReporter_Logo_Horizontal_Dark.png') }}";
+                brandLogo.src = "{{ url_for('static', filename='BR_logo_dark.png') }}";
                 darkLabel.classList.add('active');
                 lightLabel.classList.remove('active');
             }
